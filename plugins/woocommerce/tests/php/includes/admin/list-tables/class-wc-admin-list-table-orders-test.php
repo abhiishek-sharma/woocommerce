@@ -435,14 +435,21 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 		$order->set_date_paid( ( new DateTime( '2022-09-12 00:30:00', wp_timezone() ) )->getTimestamp() );
 		$order->save();
 
-		$results = $this->query_order_ids_with_date_filter(
+		$previous_day_results = $this->query_order_ids_with_date_filter(
 			array(
 				'order_date_type' => 'date_paid',
 				'm'               => '20220911',
 			)
 		);
+		$own_day_results      = $this->query_order_ids_with_date_filter(
+			array(
+				'order_date_type' => 'date_paid',
+				'm'               => '20220912',
+			)
+		);
 
-		$this->assertNotContains( $order->get_id(), $results, 'An order paid after midnight the following day should not also be listed under the previous day.' );
+		$this->assertNotContains( $order->get_id(), $previous_day_results, 'An order paid after midnight the following day should not also be listed under the previous day.' );
+		$this->assertContains( $order->get_id(), $own_day_results, 'The order should be listed under the day it was actually paid.' );
 
 		update_option( 'timezone_string', '' );
 		wp_delete_post( $order->get_id(), true );
