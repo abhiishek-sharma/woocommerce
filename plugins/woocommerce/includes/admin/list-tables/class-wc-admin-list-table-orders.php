@@ -722,8 +722,10 @@ class WC_Admin_List_Table_Orders extends WC_Admin_List_Table {
 
 				if ( $date_start ) {
 					// Derive the upper bound from the start of the next local day rather than parsing 23:59:59,
-					// so the range still covers the full day where DST ends at midnight and the day lasts 25 hours.
-					$date_end = ( clone $date_start )->modify( '+1 day' );
+					// so the range covers the whole day whatever its length around a DST transition. 'tomorrow'
+					// resolves to the next local midnight; '+1 day' would instead carry over the start time,
+					// which is not midnight on days where DST begins at 00:00.
+					$date_end = ( clone $date_start )->modify( 'tomorrow' );
 
 					$wp->query_vars['meta_key']     = "_$date_type"; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 					$wp->query_vars['meta_value']   = array( strval( $date_start->getTimestamp() ), strval( $date_end->getTimestamp() - 1 ) ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value

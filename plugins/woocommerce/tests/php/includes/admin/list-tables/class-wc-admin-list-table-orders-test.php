@@ -424,6 +424,31 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 	}
 
 	/**
+	 * @testdox Should not spill into the next day when DST starts at midnight and the day has no 00:00.
+	 */
+	public function test_date_paid_filter_does_not_overlap_dst_shortened_day(): void {
+		// Chile starts DST at midnight, so 2022-09-11 has no 00:00 hour and begins at 01:00.
+		update_option( 'timezone_string', 'America/Santiago' );
+
+		$order = WC_Helper_Order::create_order();
+		$order->set_status( 'completed' );
+		$order->set_date_paid( ( new DateTime( '2022-09-12 00:30:00', wp_timezone() ) )->getTimestamp() );
+		$order->save();
+
+		$results = $this->query_order_ids_with_date_filter(
+			array(
+				'order_date_type' => 'date_paid',
+				'm'               => '20220911',
+			)
+		);
+
+		$this->assertNotContains( $order->get_id(), $results, 'An order paid after midnight the following day should not also be listed under the previous day.' );
+
+		update_option( 'timezone_string', '' );
+		wp_delete_post( $order->get_id(), true );
+	}
+
+	/**
 	 * Test that the search without post_type in query does not trigger warnings.
 	 * This is a regression test for https://github.com/woocommerce/woocommerce/pull/55353.
 	 */
