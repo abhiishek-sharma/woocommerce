@@ -715,12 +715,13 @@ class WC_Admin_List_Table_Orders extends WC_Admin_List_Table {
 			$date_query = wc_clean( wp_unslash( $_GET['m'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			// date_paid and date_completed are stored in postmeta, so we need to do a meta query.
 			if ( 'date_paid' === $date_type || 'date_completed' === $date_type ) {
-				$date_start = \DateTime::createFromFormat( 'Ymd H:i:s', "$date_query 00:00:00" );
-				$date_end   = \DateTime::createFromFormat( 'Ymd H:i:s', "$date_query 23:59:59" );
-
-				unset( $wp->query_vars['m'] );
+				// The postmeta values are UTC timestamps, while the requested day is in the site's timezone.
+				$date_start = \DateTime::createFromFormat( 'Ymd H:i:s', "$date_query 00:00:00", wp_timezone() );
+				$date_end   = \DateTime::createFromFormat( 'Ymd H:i:s', "$date_query 23:59:59", wp_timezone() );
 
 				if ( $date_start && $date_end ) {
+					unset( $wp->query_vars['m'] );
+
 					$wp->query_vars['meta_key']     = "_$date_type"; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 					$wp->query_vars['meta_value']   = array( strval( $date_start->getTimestamp() ), strval( $date_end->getTimestamp() ) ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 					$wp->query_vars['meta_compare'] = 'BETWEEN';

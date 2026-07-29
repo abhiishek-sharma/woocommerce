@@ -273,6 +273,151 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 	}
 
 	/**
+	 * Creates a paid order with date_paid set from a local-time string.
+	 *
+	 * @param string $local_datetime Local date/time string, e.g. '2023-07-20 21:00:00'.
+	 * @return WC_Order
+	 */
+	private function create_order_paid_at( string $local_datetime ): WC_Order {
+		$order = WC_Helper_Order::create_order();
+		$order->set_status( 'completed' );
+		$order->set_date_paid( ( new DateTime( $local_datetime, wp_timezone() ) )->getTimestamp() );
+		$order->save();
+
+		return $order;
+	}
+
+	/**
+	 * Runs the order list table query as if the given $_GET params were set on edit.php.
+	 *
+	 * @param array $get_params Params to expose via $_GET (order_date_type, m).
+	 * @return int[] Matching order IDs.
+	 */
+	private function query_order_ids_with_date_filter( array $get_params ): array {
+		foreach ( $get_params as $key => $value ) {
+			$_GET[ $key ] = $value;
+		}
+		$GLOBALS['pagenow'] = 'edit.php'; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+
+		new WC_Admin_List_Table_Orders();
+		$query = new WP_Query(
+			array(
+				'post_type'   => 'shop_order',
+				'post_status' => 'all',
+				'fields'      => 'ids',
+				'm'           => $get_params['m'] ?? '',
+			)
+		);
+
+		$results = $query->get_posts();
+
+		foreach ( array_keys( $get_params ) as $key ) {
+			unset( $_GET[ $key ] );
+		}
+		unset( $GLOBALS['pagenow'] );
+
+		return $results;
+	}
+
+	/**
+	 * @testdox Should interpret the date_paid day filter in the store timezone, not UTC.
+	 */
+	public function test_date_paid_filter_uses_store_timezone(): void {
+		update_option( 'timezone_string', 'America/New_York' );
+
+		$morning_order      = $this->create_order_paid_at( '2023-07-20 09:00:00' );
+		$evening_order      = $this->create_order_paid_at( '2023-07-20 21:00:00' );
+		$previous_day_order = $this->create_order_paid_at( '2023-07-19 21:00:00' );
+
+		$results = $this->query_order_ids_with_date_filter(
+			array(
+				'order_date_type' => 'date_paid',
+				'm'               => '20230720',
+			)
+		);
+
+		$this->assertContains( $morning_order->get_id(), $results, 'Order paid in the morning (store time) should be listed for its local day.' );
+		$this->assertContains( $evening_order->get_id(), $results, 'Order paid late evening (store time) should be listed for its local day even though it falls on the next day in UTC.' );
+		$this->assertNotContains( $previous_day_order->get_id(), $results, 'Order paid the previous local day should not be listed even though it falls on the filtered day in UTC.' );
+
+		update_option( 'timezone_string', '' );
+		foreach ( array( $morning_order, $evening_order, $previous_day_order ) as $order ) {
+			wp_delete_post( $order->get_id(), true );
+		}
+	}
+
+	/**
+	 * @testdox Should respect a manual UTC offset (empty timezone_string) when filtering by date_paid.
+	 */
+	public function test_date_paid_filter_uses_store_timezone_with_manual_utc_offset(): void {
+		update_option( 'timezone_string', '' );
+		update_option( 'gmt_offset', -4 );
+
+		$evening_order      = $this->create_order_paid_at( '2023-07-20 21:00:00' );
+		$previous_day_order = $this->create_order_paid_at( '2023-07-19 21:00:00' );
+
+		$results = $this->query_order_ids_with_date_filter(
+			array(
+				'order_date_type' => 'date_paid',
+				'm'               => '20230720',
+			)
+		);
+
+		$this->assertContains( $evening_order->get_id(), $results, 'Order paid late evening (offset local time) should be listed for its local day.' );
+		$this->assertNotContains( $previous_day_order->get_id(), $results, 'Order paid the previous local day should not be listed.' );
+
+		update_option( 'gmt_offset', 0 );
+		foreach ( array( $evening_order, $previous_day_order ) as $order ) {
+			wp_delete_post( $order->get_id(), true );
+		}
+	}
+
+	/**
+	 * @testdox Should filter date_completed day ranges in the store timezone as well.
+	 */
+	public function test_date_completed_filter_uses_store_timezone(): void {
+		update_option( 'timezone_string', 'America/New_York' );
+
+		$order = WC_Helper_Order::create_order();
+		$order->set_status( 'completed' );
+		$order->set_date_completed( ( new DateTime( '2023-07-20 21:00:00', wp_timezone() ) )->getTimestamp() );
+		$order->save();
+
+		$results = $this->query_order_ids_with_date_filter(
+			array(
+				'order_date_type' => 'date_completed',
+				'm'               => '20230720',
+			)
+		);
+
+		$this->assertContains( $order->get_id(), $results, 'Order completed late evening (store time) should be listed for its local day.' );
+
+		update_option( 'timezone_string', '' );
+		wp_delete_post( $order->get_id(), true );
+	}
+
+	/**
+	 * @testdox Should fall back to native month filtering when the day value cannot be parsed, instead of dropping the date filter.
+	 */
+	public function test_date_paid_filter_falls_back_to_native_month_filter_for_malformed_day(): void {
+		$order = WC_Helper_Order::create_order();
+		$order->set_status( 'completed' );
+		$order->set_date_paid( time() );
+		$order->save();
+
+		$results = $this->query_order_ids_with_date_filter(
+			array(
+				'order_date_type' => 'date_paid',
+				'm'               => '202307',
+			)
+		);
+
+		$this->assertNotContains( $order->get_id(), $results, 'An order created now should not be listed when filtering for July 2023, even if the day-precision value cannot be parsed.' );
+
+		wp_delete_post( $order->get_id(), true );
+	}
+
+	/**
 	 * Test that the search without post_type in query does not trigger warnings.
 	 * This is a regression test for https://github.com/woocommerce/woocommerce/pull/55353.
 	 */
