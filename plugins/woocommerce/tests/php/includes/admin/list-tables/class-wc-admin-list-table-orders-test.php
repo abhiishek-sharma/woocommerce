@@ -397,23 +397,29 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 	}
 
 	/**
-	 * @testdox Should fall back to native month filtering when the day value cannot be parsed, instead of dropping the date filter.
+	 * @testdox Should cover the whole local day when DST ends at midnight and the day lasts 25 hours.
 	 */
-	public function test_date_paid_filter_falls_back_to_native_month_filter_for_malformed_day(): void {
+	public function test_date_paid_filter_covers_dst_extended_day(): void {
+		// Chile ends DST at midnight, so 2022-04-02 lasts 25 hours and repeats its 23:00 hour.
+		update_option( 'timezone_string', 'America/Santiago' );
+
+		$next_midnight = ( new DateTime( '2022-04-02 00:00:00', wp_timezone() ) )->modify( '+1 day' );
+
 		$order = WC_Helper_Order::create_order();
 		$order->set_status( 'completed' );
-		$order->set_date_paid( time() );
+		$order->set_date_paid( $next_midnight->getTimestamp() - 1800 );
 		$order->save();
 
 		$results = $this->query_order_ids_with_date_filter(
 			array(
 				'order_date_type' => 'date_paid',
-				'm'               => '202307',
+				'm'               => '20220402',
 			)
 		);
 
-		$this->assertNotContains( $order->get_id(), $results, 'An order created now should not be listed when filtering for July 2023, even if the day-precision value cannot be parsed.' );
+		$this->assertContains( $order->get_id(), $results, 'An order paid during the repeated final hour of a 25-hour local day should still be listed for that day.' );
 
+		update_option( 'timezone_string', '' );
 		wp_delete_post( $order->get_id(), true );
 	}
 

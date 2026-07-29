@@ -4713,7 +4713,7 @@ parameters:
 		-
 			message: '#^Part \$date_query \(array\|string\) of encapsed string cannot be cast to string\.$#'
 			identifier: encapsedStringPart.nonString
-			count: 2
+			count: 1
 			path: includes/admin/list-tables/class-wc-admin-list-table-orders.php
 
 		-

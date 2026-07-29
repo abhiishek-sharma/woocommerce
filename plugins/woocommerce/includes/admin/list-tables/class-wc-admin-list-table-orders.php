@@ -717,13 +717,16 @@ class WC_Admin_List_Table_Orders extends WC_Admin_List_Table {
 			if ( 'date_paid' === $date_type || 'date_completed' === $date_type ) {
 				// The postmeta values are UTC timestamps, while the requested day is in the site's timezone.
 				$date_start = \DateTime::createFromFormat( 'Ymd H:i:s', "$date_query 00:00:00", wp_timezone() );
-				$date_end   = \DateTime::createFromFormat( 'Ymd H:i:s', "$date_query 23:59:59", wp_timezone() );
 
-				if ( $date_start && $date_end ) {
-					unset( $wp->query_vars['m'] );
+				unset( $wp->query_vars['m'] );
+
+				if ( $date_start ) {
+					// Derive the upper bound from the start of the next local day rather than parsing 23:59:59,
+					// so the range still covers the full day where DST ends at midnight and the day lasts 25 hours.
+					$date_end = ( clone $date_start )->modify( '+1 day' );
 
 					$wp->query_vars['meta_key']     = "_$date_type"; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-					$wp->query_vars['meta_value']   = array( strval( $date_start->getTimestamp() ), strval( $date_end->getTimestamp() ) ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+					$wp->query_vars['meta_value']   = array( strval( $date_start->getTimestamp() ), strval( $date_end->getTimestamp() - 1 ) ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 					$wp->query_vars['meta_compare'] = 'BETWEEN';
 				}
 			}
