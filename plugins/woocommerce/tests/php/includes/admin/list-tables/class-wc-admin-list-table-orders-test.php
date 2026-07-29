@@ -456,6 +456,37 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 	}
 
 	/**
+	 * @testdox Should treat the next local midnight as the exclusive end of the day.
+	 */
+	public function test_date_paid_filter_excludes_the_next_midnight_instant(): void {
+		update_option( 'timezone_string', 'America/New_York' );
+
+		$order = WC_Helper_Order::create_order();
+		$order->set_status( 'completed' );
+		$order->set_date_paid( ( new DateTime( '2026-07-21 00:00:00', wp_timezone() ) )->getTimestamp() );
+		$order->save();
+
+		$filtered_day_results = $this->query_order_ids_with_date_filter(
+			array(
+				'order_date_type' => 'date_paid',
+				'm'               => '20260720',
+			)
+		);
+		$own_day_results      = $this->query_order_ids_with_date_filter(
+			array(
+				'order_date_type' => 'date_paid',
+				'm'               => '20260721',
+			)
+		);
+
+		$this->assertNotContains( $order->get_id(), $filtered_day_results, 'An order paid exactly at midnight belongs to the day starting then, not the one ending then.' );
+		$this->assertContains( $order->get_id(), $own_day_results, 'An order paid exactly at midnight should be listed under the day that starts at that instant.' );
+
+		update_option( 'timezone_string', '' );
+		wp_delete_post( $order->get_id(), true );
+	}
+
+	/**
 	 * Test that the search without post_type in query does not trigger warnings.
 	 * This is a regression test for https://github.com/woocommerce/woocommerce/pull/55353.
 	 */
