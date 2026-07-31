@@ -288,16 +288,16 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 	}
 
 	/**
-	 * Runs the order list table query as if the given $_GET params were set on edit.php.
+	 * Runs an order list table date query.
 	 *
-	 * @param array $get_params Params to expose via $_GET (order_date_type, m).
+	 * @param string $date_type Order date field to filter.
+	 * @param string $date      Date in Ymd format.
 	 * @return int[] Matching order IDs.
 	 */
-	private function query_order_ids_with_date_filter( array $get_params ): array {
-		foreach ( $get_params as $key => $value ) {
-			$_GET[ $key ] = $value;
-		}
-		$GLOBALS['pagenow'] = 'edit.php'; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+	private function query_order_ids_with_date_filter( string $date_type, string $date ): array {
+		$_GET['order_date_type'] = $date_type;
+		$_GET['m']               = $date;
+		$GLOBALS['pagenow']      = 'edit.php'; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
 
 		new WC_Admin_List_Table_Orders();
 		$query = new WP_Query(
@@ -305,16 +305,13 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 				'post_type'   => 'shop_order',
 				'post_status' => 'all',
 				'fields'      => 'ids',
-				'm'           => $get_params['m'] ?? '',
+				'm'           => $date,
 			)
 		);
 
 		$results = $query->get_posts();
 
-		foreach ( array_keys( $get_params ) as $key ) {
-			unset( $_GET[ $key ] );
-		}
-		unset( $GLOBALS['pagenow'] );
+		unset( $_GET['order_date_type'], $_GET['m'], $GLOBALS['pagenow'] );
 
 		return $results;
 	}
@@ -329,12 +326,7 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 		$evening_order      = $this->create_order_paid_at( '2023-07-20 21:00:00' );
 		$previous_day_order = $this->create_order_paid_at( '2023-07-19 21:00:00' );
 
-		$results = $this->query_order_ids_with_date_filter(
-			array(
-				'order_date_type' => 'date_paid',
-				'm'               => '20230720',
-			)
-		);
+		$results = $this->query_order_ids_with_date_filter( 'date_paid', '20230720' );
 
 		$this->assertContains( $morning_order->get_id(), $results, 'Order paid in the morning (store time) should be listed for its local day.' );
 		$this->assertContains( $evening_order->get_id(), $results, 'Order paid late evening (store time) should be listed for its local day even though it falls on the next day in UTC.' );
@@ -356,12 +348,7 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 		$evening_order      = $this->create_order_paid_at( '2023-07-20 21:00:00' );
 		$previous_day_order = $this->create_order_paid_at( '2023-07-19 21:00:00' );
 
-		$results = $this->query_order_ids_with_date_filter(
-			array(
-				'order_date_type' => 'date_paid',
-				'm'               => '20230720',
-			)
-		);
+		$results = $this->query_order_ids_with_date_filter( 'date_paid', '20230720' );
 
 		$this->assertContains( $evening_order->get_id(), $results, 'Order paid late evening (offset local time) should be listed for its local day.' );
 		$this->assertNotContains( $previous_day_order->get_id(), $results, 'Order paid the previous local day should not be listed.' );
@@ -383,12 +370,7 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 		$order->set_date_completed( ( new DateTime( '2023-07-20 21:00:00', wp_timezone() ) )->getTimestamp() );
 		$order->save();
 
-		$results = $this->query_order_ids_with_date_filter(
-			array(
-				'order_date_type' => 'date_completed',
-				'm'               => '20230720',
-			)
-		);
+		$results = $this->query_order_ids_with_date_filter( 'date_completed', '20230720' );
 
 		$this->assertContains( $order->get_id(), $results, 'Order completed late evening (store time) should be listed for its local day.' );
 
@@ -410,12 +392,7 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 		$order->set_date_paid( $next_midnight->getTimestamp() - 1800 );
 		$order->save();
 
-		$results = $this->query_order_ids_with_date_filter(
-			array(
-				'order_date_type' => 'date_paid',
-				'm'               => '20220402',
-			)
-		);
+		$results = $this->query_order_ids_with_date_filter( 'date_paid', '20220402' );
 
 		$this->assertContains( $order->get_id(), $results, 'An order paid during the repeated final hour of a 25-hour local day should still be listed for that day.' );
 
@@ -435,18 +412,8 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 		$order->set_date_paid( ( new DateTime( '2022-09-12 00:30:00', wp_timezone() ) )->getTimestamp() );
 		$order->save();
 
-		$previous_day_results = $this->query_order_ids_with_date_filter(
-			array(
-				'order_date_type' => 'date_paid',
-				'm'               => '20220911',
-			)
-		);
-		$own_day_results      = $this->query_order_ids_with_date_filter(
-			array(
-				'order_date_type' => 'date_paid',
-				'm'               => '20220912',
-			)
-		);
+		$previous_day_results = $this->query_order_ids_with_date_filter( 'date_paid', '20220911' );
+		$own_day_results      = $this->query_order_ids_with_date_filter( 'date_paid', '20220912' );
 
 		$this->assertNotContains( $order->get_id(), $previous_day_results, 'An order paid after midnight the following day should not also be listed under the previous day.' );
 		$this->assertContains( $order->get_id(), $own_day_results, 'The order should be listed under the day it was actually paid.' );
@@ -466,18 +433,8 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 		$order->set_date_paid( ( new DateTime( '2026-07-21 00:00:00', wp_timezone() ) )->getTimestamp() );
 		$order->save();
 
-		$filtered_day_results = $this->query_order_ids_with_date_filter(
-			array(
-				'order_date_type' => 'date_paid',
-				'm'               => '20260720',
-			)
-		);
-		$own_day_results      = $this->query_order_ids_with_date_filter(
-			array(
-				'order_date_type' => 'date_paid',
-				'm'               => '20260721',
-			)
-		);
+		$filtered_day_results = $this->query_order_ids_with_date_filter( 'date_paid', '20260720' );
+		$own_day_results      = $this->query_order_ids_with_date_filter( 'date_paid', '20260721' );
 
 		$this->assertNotContains( $order->get_id(), $filtered_day_results, 'An order paid exactly at midnight belongs to the day starting then, not the one ending then.' );
 		$this->assertContains( $order->get_id(), $own_day_results, 'An order paid exactly at midnight should be listed under the day that starts at that instant.' );

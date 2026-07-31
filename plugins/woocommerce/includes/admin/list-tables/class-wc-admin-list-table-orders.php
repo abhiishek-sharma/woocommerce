@@ -721,11 +721,9 @@ class WC_Admin_List_Table_Orders extends WC_Admin_List_Table {
 				unset( $wp->query_vars['m'] );
 
 				if ( $date_start ) {
-					// Derive the upper bound from the next local midnight rather than parsing 23:59:59, so the
-					// range follows the real length of the day across a DST transition. '+1 day' is not
-					// equivalent: it carries over the start time, which is not midnight on days where DST
-					// begins at 00:00. The range is still an hour short on the rare dates where a zone moved
-					// its clocks back onto midnight itself, leaving 00:00 ambiguous (last seen in 2021).
+					// Use the next local midnight so the range follows DST-shortened or extended days.
+					// 'tomorrow' resets to midnight; '+1 day' can retain a normalized 01:00 start.
+					// Midnight rollbacks before 2022 may still leave the first repeated hour uncovered.
 					$date_end = ( clone $date_start )->modify( 'tomorrow' );
 
 					$wp->query_vars['meta_key']     = "_$date_type"; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
