@@ -379,6 +379,28 @@ class WC_Admin_List_Table_Orders_Test extends WC_Unit_Test_Case {
 	}
 
 	/**
+	 * @testdox Should compare paid and completed timestamps numerically.
+	 */
+	public function test_date_filters_compare_timestamps_numerically(): void {
+		update_option( 'timezone_string', 'America/New_York' );
+
+		$timestamp = ( new DateTime( '2001-09-08 21:00:00', wp_timezone() ) )->getTimestamp();
+		$order     = WC_Helper_Order::create_order();
+		$order->set_status( 'completed' );
+		$order->set_date_paid( $timestamp );
+		$order->set_date_completed( $timestamp );
+		$order->save();
+
+		foreach ( array( 'date_paid', 'date_completed' ) as $date_type ) {
+			$results = $this->query_order_ids_with_date_filter( $date_type, '20010908' );
+			$this->assertContains( $order->get_id(), $results, "{$date_type} should match across the Unix timestamp digit boundary." );
+		}
+
+		update_option( 'timezone_string', '' );
+		wp_delete_post( $order->get_id(), true );
+	}
+
+	/**
 	 * @testdox Should cover the whole local day when DST ends at midnight and the day lasts 25 hours.
 	 */
 	public function test_date_paid_filter_covers_dst_extended_day(): void {
