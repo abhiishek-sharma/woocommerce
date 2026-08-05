@@ -196,16 +196,22 @@ jobs:
             fi
 
             # No non-draft PRs against release branch should remain open.
-            count=$( gh pr list --search "is:open draft:false base:$BRANCH" --limit 1 --json number | jq length )
-            if (( count > 0 )); then
-              fail "There are open PRs against the release branch ($BRANCH)."
+            open_prs=$( gh pr list --search "is:open draft:false base:$BRANCH" --limit 50 --json number,title,url --jq '.[] | "- \(.url): \(.title)"' )
+            if [[ -n "$open_prs" ]]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "Open PRs against the release branch ($BRANCH):" >> $GITHUB_STEP_SUMMARY
+              echo "$open_prs" >> $GITHUB_STEP_SUMMARY
+              fail "There are open PRs against the release branch ($BRANCH). See the workflow summary for the list."
             fi
 
             # No non-draft PRs with same milestone as main version should remain open.
             milestone="$version_prefix.0"
-            count=$( gh pr list --search "is:open draft:false milestone:$milestone" --limit 1 --json number | jq length )
-            if (( count > 0 )); then
-              fail "There are open PRs with milestone '$milestone'."
+            open_prs=$( gh pr list --search "is:open draft:false milestone:$milestone" --limit 50 --json number,title,url --jq '.[] | "- \(.url): \(.title)"' )
+            if [[ -n "$open_prs" ]]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "Open PRs with milestone '$milestone':" >> $GITHUB_STEP_SUMMARY
+              echo "$open_prs" >> $GITHUB_STEP_SUMMARY
+              fail "There are open PRs with milestone '$milestone'. See the workflow summary for the list."
             fi
 
             # Changelog section must have at least one entry.
