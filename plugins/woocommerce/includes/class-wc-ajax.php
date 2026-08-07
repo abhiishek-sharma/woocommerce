@@ -2378,7 +2378,7 @@ class WC_AJAX {
 		if ( has_action( 'woocommerce_after_product_ordering' ) ) {
 			$all_positions = array_column(
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->get_results( "SELECT ID, menu_order FROM {$wpdb->posts} WHERE post_type = 'product' ORDER BY menu_order ASC, post_title ASC" ),
+				$wpdb->get_results( "SELECT ID, menu_order FROM {$wpdb->posts} WHERE post_type = 'product' ORDER BY menu_order ASC, post_title ASC, ID ASC" ),
 				'menu_order',
 				'ID'
 			);
