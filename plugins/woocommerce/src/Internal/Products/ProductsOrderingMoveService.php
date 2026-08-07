@@ -224,16 +224,16 @@ final class ProductsOrderingMoveService {
 		$range_ids      = array_keys( array_filter( $reindexed, static fn( $position ) => $position >= $map->range_from && $position <= $map->range_to ) );
 		if ( count( $range_ids ) !== $expected_count ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$range_ids = array_map( 'intval', $wpdb->get_col(
+			$range_ids = $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' AND menu_order BETWEEN %d AND %d LIMIT %d",
 					$map->range_from,
 					$map->range_to,
 					$expected_count
 				)
-			) );
+			);
 		}
 
-		return $range_ids;
+		return array_map( 'intval', $range_ids );
 	}
 }
