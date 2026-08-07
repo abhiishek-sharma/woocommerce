@@ -26,7 +26,7 @@ final class ProductsOrderingReindexService {
 
 		$result           = array();
 		$current_position = 1;
-		for ( $offset = 0, $total = count( $product_ids ); $offset < $total; $offset += $batch_size ) {
+		for ( $offset = 0, $total = count( $product_ids ), $batch_size = max( 1, $batch_size ); $offset < $total; $offset += $batch_size ) {
 			$batch_ids       = array_slice( $product_ids, $offset, $batch_size );
 			$batch_positions = array();
 			$batch_branches  = array();
