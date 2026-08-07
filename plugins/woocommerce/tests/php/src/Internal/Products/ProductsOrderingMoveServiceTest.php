@@ -210,6 +210,20 @@ final class ProductsOrderingMoveServiceTest extends WC_Unit_Test_Case {
 	}
 
 	/**
+	 * @testdox move() is a no-op when both anchors are zero.
+	 */
+	public function test_move_with_both_anchors_zero(): void {
+		$alpha_id = $this->create_product( 'Alpha', 1 );
+
+		$result = $this->sut->move( 0, $alpha_id, 0 );
+
+		$this->assertSame( array(), $result->reindexed );
+		$this->assertSame( array(), $result->moved );
+
+		wc_get_product( $alpha_id )->delete( true );
+	}
+
+	/**
 	 * @testdox move() triggers a full reindex when moving an unindexed product to the last position.
 	 */
 	public function test_move_unindexed_to_last_position(): void {
