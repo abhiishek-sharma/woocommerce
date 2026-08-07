@@ -169,6 +169,31 @@ final class ProductsOrderingMoveServiceTest extends WC_Unit_Test_Case {
 	}
 
 	/**
+	 * @testdox move() resolves a collision even when colliding anchors already match the requested order.
+	 */
+	public function test_move_resolves_collision_matching_requested_order(): void {
+		$alpha_id = $this->create_product( 'Alpha', 1 );
+		$beta_id  = $this->create_product( 'Beta', 2 );
+		$gamma_id = $this->create_product( 'Gamma', 2 );
+		$products = array( $alpha_id, $beta_id, $gamma_id );
+
+		$result = $this->sut->move( $alpha_id, $beta_id, $gamma_id );
+
+		// Reindex resolves the collision; product is already in place post-reindex, so no move needed.
+		$this->assertSame(
+			array(
+				$alpha_id => 1,
+				$beta_id  => 2,
+				$gamma_id => 3,
+			),
+			$result->reindexed
+		);
+		$this->assertSame( array(), $result->moved );
+
+		array_walk( $products, static fn( $id ) => wc_get_product( $id )->delete( true ) );
+	}
+
+	/**
 	 * @testdox move() triggers a reindex but skips the move when the product is already in the correct position after reindexing.
 	 */
 	public function test_move_skips_apply_when_in_place_after_reindex(): void {

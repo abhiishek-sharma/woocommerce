@@ -45,10 +45,8 @@ final class ProductsOrderingMoveService {
 			'reindexed' => array(),
 		);
 
-		// Has moved when DB position order differs from the requested order; no-op when those are matching.
 		$anchor_positions = $this->compose_anchor_positions( $previous_id, $product_id, $next_id );
-		$has_moved        = array_keys( $anchor_positions ) !== array_values( array_filter( array( $previous_id, $product_id, $next_id ) ) );
-		if ( ! $has_moved ) {
+		if ( ! $this->has_moved( $anchor_positions, $previous_id, $product_id, $next_id ) ) {
 			return (object) $result;
 		}
 
@@ -60,8 +58,7 @@ final class ProductsOrderingMoveService {
 
 			$anchor_positions = $this->compose_anchor_positions( $previous_id, $product_id, $next_id );
 			$map              = $this->compose_move_map( $previous_id, $product_id, $next_id, $anchor_positions );
-			$has_moved        = array_keys( $anchor_positions ) !== array_values( array_filter( array( $previous_id, $product_id, $next_id ) ) );
-			if ( ! $has_moved ) {
+			if ( ! $this->has_moved( $anchor_positions, $previous_id, $product_id, $next_id ) ) {
 				return (object) $result;
 			}
 		}
@@ -119,6 +116,32 @@ final class ProductsOrderingMoveService {
 		);
 
 		return array_map( 'intval', $updated_positions );
+	}
+
+	/**
+	 * Determines whether the product's position needs updating.
+	 *
+	 * @param array<int,int> $anchor_positions Map of product ID → current menu_order, ordered by menu_order ASC.
+	 * @param int            $previous_id      ID of the product before the target position, or 0 for start.
+	 * @param int            $product_id       ID of the product being repositioned.
+	 * @param int            $next_id          ID of the product after the target position, or 0 for end.
+	 *
+	 * @return bool
+	 */
+	private function has_moved( array $anchor_positions, int $previous_id, int $product_id, int $next_id ): bool {
+		// Compare DB ordering (array keys sorted by menu_order) against the requested ordering (filtering out 0 pseudo-IDs).
+		$has_moved = array_keys( $anchor_positions ) !== array_values( array_filter( array( $previous_id, $product_id, $next_id ) ) );
+		if ( $has_moved ) {
+			return true;
+		}
+
+		// Unindexed (position 0) or colliding (duplicate positions) anchors always need work.
+		$needs_reindexing = in_array( 0, $anchor_positions, true ) || count( array_unique( $anchor_positions ) ) !== count( $anchor_positions );
+		if ( $needs_reindexing ) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
