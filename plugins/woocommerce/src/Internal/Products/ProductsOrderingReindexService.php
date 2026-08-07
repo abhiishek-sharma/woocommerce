@@ -22,7 +22,7 @@ final class ProductsOrderingReindexService {
 
 		// Performance note: prefetch product ids; enables deterministic behaviour and faster queries below.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$product_ids = $wpdb->get_col( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' ORDER BY menu_order ASC, post_title ASC" );
+		$product_ids = $wpdb->get_col( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' ORDER BY menu_order ASC, post_title ASC, ID ASC" );
 
 		// Performance: IDs array processing (cut a chunk, re-add to result array) optimized for keeping the memory usage roughly constant here.
 		$result           = array();
