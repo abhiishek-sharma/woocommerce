@@ -2359,17 +2359,17 @@ class WC_AJAX {
 		}
 
 		foreach ( array( $modifications->reindexed, $modifications->moved ) as $affected ) {
-			foreach ( $affected as $id => $position ) {
+			foreach ( $affected as $id => $index ) {
 				/**
 				 * When a single product has gotten its ordering updated.
 				 *
-				 * @param int $id       The product ID.
-				 * @param int $position The new sort position.
+				 * @param int $id    The product ID.
+				 * @param int $index The new sort position.
 				 *
 				 * @since 11.1.0 fires for updated entries only; see woocommerce_after_product_ordering for all positions.
 				 * @since 3.1.0
 				 */
-				do_action( 'woocommerce_after_single_product_ordering', $id, $position );
+				do_action( 'woocommerce_after_single_product_ordering', $id, $index );
 			}
 		}
 		unset( $modifications->reindexed );
