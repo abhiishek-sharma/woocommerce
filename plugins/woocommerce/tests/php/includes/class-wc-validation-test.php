@@ -99,7 +99,26 @@ class WC_Validation_Test extends \WC_Unit_Test_Case {
 			array( false, "LV-1050\n", 'LV' ),
 		);
 
-		return array_merge( $cz, $se, $li, $lv );
+		$dk = array(
+			array( true, 'DK-1050', 'DK' ),
+			array( true, '1050', 'DK' ),
+			array( true, 'DK-3800', 'DK' ),
+			array( false, 'DK-3900', 'DK' ),
+			array( false, 'DK-105', 'DK' ),
+			array( false, '0500', 'DK' ),
+			// The prefix separator is optional, and may be a hyphen or a literal space.
+			array( true, 'DK1050', 'DK' ),
+			array( true, 'DK 1050', 'DK' ),
+			array( false, 'DK3900', 'DK' ),
+			array( false, "DK\n1050", 'DK' ),
+			// The DK pattern carries no /i flag, so a lowercase prefix is rejected. This
+			// matches CZ, SE and SK. wc_normalize_postcode() uppercases, so callers that
+			// format before validating never produce this form.
+			array( false, 'dk-1050', 'DK' ),
+			array( false, 'dk1050', 'DK' ),
+		);
+
+		return array_merge( $cz, $se, $li, $lv, $dk );
 	}
 
 	/**
