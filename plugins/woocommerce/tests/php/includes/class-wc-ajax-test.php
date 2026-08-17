@@ -710,7 +710,7 @@ class WC_AJAX_Test extends \WP_Ajax_UnitTestCase {
 	}
 
 	/**
-	 * @testdox 'product_ordering' moves a product to the correct position and shifts the affected range.
+	 * @testdox 'product_ordering' (legacy algorithm) moves a product to the correct position and shifts the affected range.
 	 * @dataProvider product_ordering_provider
 	 *
 	 * @param int   $sorting_idx     Index (0-based) of the product being dragged.
@@ -718,7 +718,56 @@ class WC_AJAX_Test extends \WP_Ajax_UnitTestCase {
 	 * @param int   $nextid_idx      Index of the product immediately after the drop target, or -1 if dropped at the bottom.
 	 * @param int[] $expected_orders Expected menu_order values indexed by original product position [P1..P5].
 	 */
-	public function test_product_ordering( int $sorting_idx, int $previd_idx, int $nextid_idx, array $expected_orders ): void {
+	public function test_product_ordering_using_legacy_algorithm( int $sorting_idx, int $previd_idx, int $nextid_idx, array $expected_orders ): void {
+		global $wpdb;
+
+		$this->_setRole( 'administrator' );
+
+		// Attach a listener to force the legacy branching path.
+		$legacy_hook = function () {};
+		add_action( 'woocommerce_after_single_product_ordering', $legacy_hook );
+
+		$products = array();
+		for ( $i = 1; $i <= 5; ++$i ) {
+			$product                 = WC_Helper_Product::create_simple_product();
+			$product_id              = $product->get_id();
+			$products[ $product_id ] = $product;
+			wp_update_post(
+				array(
+					'ID'         => $product_id,
+					'menu_order' => $i,
+				)
+			);
+		}
+		$product_ids = array_keys( $products );
+
+		$_POST['security'] = wp_create_nonce( 'product-ordering' );
+		$_POST['id']       = $product_ids[ $sorting_idx ];
+		$_POST['previd']   = $previd_idx >= 0 ? $product_ids[ $previd_idx ] : 0;
+		$_POST['nextid']   = $nextid_idx >= 0 ? $product_ids[ $nextid_idx ] : 0;
+
+		$this->do_ajax( 'woocommerce_product_ordering' );
+
+		unset( $_POST['security'], $_POST['id'], $_POST['previd'], $_POST['nextid'] );
+		remove_action( 'woocommerce_after_single_product_ordering', $legacy_hook );
+
+		foreach ( $product_ids as $idx => $product_id ) {
+			$actual = (int) $wpdb->get_var( $wpdb->prepare( "SELECT menu_order FROM {$wpdb->posts} WHERE ID = %d", $product_id ) );
+			$this->assertSame( $expected_orders[ $idx ], $actual, "Product at index {$idx} has wrong menu_order." );
+			$products[ $product_id ]->delete( true );
+		}
+	}
+
+	/**
+	 * @testdox 'product_ordering' (range algorithm) moves a product to the correct position and shifts the affected range.
+	 * @dataProvider product_ordering_provider
+	 *
+	 * @param int   $sorting_idx     Index (0-based) of the product being dragged.
+	 * @param int   $previd_idx      Index of the product immediately before the drop target, or -1 if dropped at the top.
+	 * @param int   $nextid_idx      Index of the product immediately after the drop target, or -1 if dropped at the bottom.
+	 * @param int[] $expected_orders Expected menu_order values indexed by original product position [P1..P5].
+	 */
+	public function test_product_ordering_using_range_algorithm( int $sorting_idx, int $previd_idx, int $nextid_idx, array $expected_orders ): void {
 		global $wpdb;
 
 		$this->_setRole( 'administrator' );

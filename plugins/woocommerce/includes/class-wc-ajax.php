@@ -2353,35 +2353,55 @@ class WC_AJAX {
 		$product_id  = absint( $_POST['id'] );
 		$next_id     = absint( $_POST['nextid'] ?? 0 );
 
-		$modifications = wc_get_container()->get( ProductsOrderingMoveService::class )->move( $previous_id, $product_id, $next_id );
-		if ( ! empty( $modifications->moved ) || ! empty( $modifications->reindexed ) ) {
-			WC_Post_Data::delete_product_query_transients();
-		}
+		$use_legacy_algorithm = has_action( 'woocommerce_after_single_product_ordering' ) || has_action( 'woocommerce_after_product_ordering' );
+		if ( $use_legacy_algorithm ) {
+			// Based on Simple Page Ordering by 10up (https://wordpress.org/plugins/simple-page-ordering/).
+			$menu_orders = wp_list_pluck( $wpdb->get_results( "SELECT ID, menu_order FROM {$wpdb->posts} WHERE post_type = 'product' ORDER BY menu_order ASC, post_title ASC" ), 'menu_order', 'ID' );
+			$index       = 0;
 
-		foreach ( array( $modifications->reindexed, $modifications->moved ) as $affected ) {
-			foreach ( $affected as $id => $index ) {
+			foreach ( $menu_orders as $id => $menu_order ) {
+				$id = absint( $id );
+
+				if ( $product_id === $id ) {
+					continue;
+				}
+				if ( $next_id === $id ) {
+					++$index;
+				}
+				++$index;
+				$menu_orders[ $id ] = $index;
+
+				if ( $wpdb->update( $wpdb->posts, array( 'menu_order' => $index ), array( 'ID' => $id ) ) ) {
+					// We only need to clean the cache if the menu order was actually modified.
+					clean_post_cache( $id );
+				}
+
 				/**
 				 * When a single product has gotten its ordering updated.
 				 *
 				 * @param int $id    The product ID.
 				 * @param int $index The new sort position.
 				 *
-				 * @since 11.1.0 fires for updated entries only; see woocommerce_after_product_ordering for all positions.
 				 * @since 3.1.0
 				 */
 				do_action( 'woocommerce_after_single_product_ordering', $id, $index );
 			}
-		}
-		unset( $modifications->reindexed );
 
-		// Performance note: hook below loads all products — no covering index on menu_order, degrades with catalog size; avoid hooking it on large catalogs.
-		if ( has_action( 'woocommerce_after_product_ordering' ) ) {
-			$all_positions = array_column(
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->get_results( "SELECT ID, menu_order FROM {$wpdb->posts} WHERE post_type = 'product' ORDER BY menu_order ASC, post_title ASC, ID ASC" ),
-				'menu_order',
-				'ID'
-			);
+			if ( isset( $menu_orders[ $previous_id ] ) ) {
+				$menu_orders[ $product_id ] = $menu_orders[ $previous_id ] + 1;
+			} elseif ( isset( $menu_orders[ $next_id ] ) ) {
+				$menu_orders[ $product_id ] = $menu_orders[ $next_id ] - 1;
+			} else {
+				$menu_orders[ $product_id ] = 0;
+			}
+
+			if ( $wpdb->update( $wpdb->posts, array( 'menu_order' => $menu_orders[ $product_id ] ), array( 'ID' => $product_id ) ) ) {
+				// We only need to clean the cache if the menu order was actually modified.
+				clean_post_cache( $product_id );
+			}
+
+			WC_Post_Data::delete_product_query_transients();
+
 			/**
 			 * When products ordering update completed.
 			 *
@@ -2390,10 +2410,17 @@ class WC_AJAX {
 			 *
 			 * @since 3.1.0
 			 */
-			do_action( 'woocommerce_after_product_ordering', $product_id, $all_positions );
-		}
+			do_action( 'woocommerce_after_product_ordering', $product_id, $menu_orders );
+			wp_send_json( $menu_orders );
 
-		wp_send_json( $modifications->moved );
+		} else {
+			$modifications = wc_get_container()->get( ProductsOrderingMoveService::class )->move( $previous_id, $product_id, $next_id );
+			if ( ! empty( $modifications->moved ) || ! empty( $modifications->reindexed ) ) {
+				WC_Post_Data::delete_product_query_transients();
+				unset( $modifications->reindexed );
+			}
+			wp_send_json( $modifications->moved );
+		}
 	}
 
 	/**
