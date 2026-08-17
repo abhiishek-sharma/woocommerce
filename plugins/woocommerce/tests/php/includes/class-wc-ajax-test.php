@@ -845,7 +845,13 @@ class WC_AJAX_Test extends \WP_Ajax_UnitTestCase {
 
 		$this->assertTrue( $hook_fired, 'woocommerce_after_product_ordering was not fired.' );
 		$this->assertSame( $product_ids[1], $captured['sorting_id'] );
-		$this->assertSame( array( $product_ids[0] => 2, $product_ids[1] => 1 ), $captured['all_positions'] );
+		$this->assertSame(
+			array(
+				$product_ids[0] => 2,
+				$product_ids[1] => 1,
+			),
+			$captured['all_positions']
+		);
 
 		foreach ( $product_ids as $product_id ) {
 			$products[ $product_id ]->delete( true );
