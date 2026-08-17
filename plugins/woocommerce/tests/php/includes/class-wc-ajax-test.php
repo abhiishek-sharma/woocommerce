@@ -822,11 +822,13 @@ class WC_AJAX_Test extends \WP_Ajax_UnitTestCase {
 		$product_ids = array_keys( $products );
 
 		$hook_fired = false;
-		$hook       = function ( $sorting_id, $all_positions ) use ( &$hook_fired, $product_ids ) {
+		$captured   = array();
+		$hook       = function ( $sorting_id, $all_positions ) use ( &$hook_fired, &$captured ) {
 			$hook_fired = true;
-			$this->assertSame( $product_ids[1], $sorting_id );
-			$this->assertSame( '1', $all_positions[ $product_ids[1] ] );
-			$this->assertSame( '2', $all_positions[ $product_ids[0] ] );
+			$captured   = array(
+				'sorting_id'    => $sorting_id,
+				'all_positions' => $all_positions,
+			);
 		};
 		add_action( 'woocommerce_after_product_ordering', $hook, 10, 2 );
 
@@ -842,6 +844,8 @@ class WC_AJAX_Test extends \WP_Ajax_UnitTestCase {
 		remove_action( 'woocommerce_after_product_ordering', $hook, 10 );
 
 		$this->assertTrue( $hook_fired, 'woocommerce_after_product_ordering was not fired.' );
+		$this->assertSame( $product_ids[1], $captured['sorting_id'] );
+		$this->assertSame( array( $product_ids[0] => 2, $product_ids[1] => 1 ), $captured['all_positions'] );
 
 		foreach ( $product_ids as $product_id ) {
 			$products[ $product_id ]->delete( true );
