@@ -226,10 +226,9 @@ final class ProductsOrderingMoveService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$range_ids = $wpdb->get_col(
 				$wpdb->prepare(
-					"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' AND menu_order BETWEEN %d AND %d LIMIT %d",
+					"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' AND menu_order BETWEEN %d AND %d",
 					$map->range_from,
-					$map->range_to,
-					$expected_count
+					$map->range_to
 				)
 			);
 		}

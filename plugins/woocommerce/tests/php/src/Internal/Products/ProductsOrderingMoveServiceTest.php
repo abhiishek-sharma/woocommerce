@@ -321,6 +321,33 @@ final class ProductsOrderingMoveServiceTest extends WC_Unit_Test_Case {
 	}
 
 	/**
+	 * @testdox move() correctly shifts all products in the range when non-anchor duplicates exist (no reindex).
+	 */
+	public function test_move_with_non_anchor_duplicate_in_range(): void {
+		$alpha_id   = $this->create_product( 'Alpha', 1 );
+		$beta_id    = $this->create_product( 'Beta', 2 );
+		$charlie_id = $this->create_product( 'Charlie', 2 );
+		$delta_id   = $this->create_product( 'Delta', 3 );
+		$echo_id    = $this->create_product( 'Echo', 4 );
+		$products   = array( $alpha_id, $beta_id, $charlie_id, $delta_id, $echo_id );
+
+		$result = $this->sut->move( $alpha_id, $echo_id, $beta_id );
+
+		$this->assertSame( array(), $result->reindexed );
+		$this->assertSame(
+			array(
+				$echo_id    => 2,
+				$beta_id    => 3,
+				$charlie_id => 3,
+				$delta_id   => 4,
+			),
+			$result->moved
+		);
+
+		array_walk( $products, static fn( $id ) => wc_get_product( $id )->delete( true ) );
+	}
+
+	/**
 	 * @param string $name       Product name (controls reindex sort order via post_title ASC).
 	 * @param int    $menu_order Initial menu_order value.
 	 * @return int
