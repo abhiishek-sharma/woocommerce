@@ -53,6 +53,7 @@ final class ProductsOrderingMoveService {
 		// Re-indexing is required when: a position collision is detected or moving between groups one of which is unindexed.
 		$map              = $this->compose_move_map( $previous_id, $product_id, $next_id, $anchor_positions );
 		$needs_reindexing = $map->old_position === $map->new_position || 0 === $map->new_position || 0 === $map->old_position;
+		$needs_reindexing = $needs_reindexing || count( array_unique( $anchor_positions ) ) !== count( $anchor_positions );
 		if ( $needs_reindexing ) {
 			$result['reindexed'] = $this->reindex_service->reindex_products();
 

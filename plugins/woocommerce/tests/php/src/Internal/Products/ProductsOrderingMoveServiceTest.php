@@ -348,6 +348,29 @@ final class ProductsOrderingMoveServiceTest extends WC_Unit_Test_Case {
 	}
 
 	/**
+	 * @testdox move() triggers a reindex when previous and next anchors share the same non-zero position.
+	 */
+	public function test_move_triggers_reindex_on_anchor_collision(): void {
+		$alpha_id = $this->create_product( 'Alpha', 1 );
+		$beta_id  = $this->create_product( 'Beta', 5 );
+		$gamma_id = $this->create_product( 'Gamma', 5 );
+		$products = array( $alpha_id, $beta_id, $gamma_id );
+
+		$result = $this->sut->move( $beta_id, $alpha_id, $gamma_id );
+
+		$this->assertNotEmpty( $result->reindexed, 'Anchor collision should trigger a reindex.' );
+		$this->assertSame(
+			array(
+				$beta_id  => 1,
+				$alpha_id => 2,
+			),
+			$result->moved
+		);
+
+		array_walk( $products, static fn( $id ) => wc_get_product( $id )->delete( true ) );
+	}
+
+	/**
 	 * @param string $name       Product name (controls reindex sort order via post_title ASC).
 	 * @param int    $menu_order Initial menu_order value.
 	 * @return int
