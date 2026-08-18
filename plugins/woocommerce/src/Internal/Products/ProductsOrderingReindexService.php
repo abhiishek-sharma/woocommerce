@@ -51,7 +51,7 @@ final class ProductsOrderingReindexService {
 			$updated = (int) $wpdb->query( "UPDATE {$wpdb->posts} SET menu_order = CASE ID {$batch_branches} END WHERE ID IN ( {$in_values} )" );
 			if ( $updated > 0 ) {
 				if ( $clean_post_cache ) {
-					// Performance note: fires clean_post_cache action per product for cache plugins compatibility.
+					// Performance note: fires clean_post_cache action per product for cache plugins compatibility (WooCommerce v11.2).
 					array_walk( $batch_ids, 'clean_post_cache' );
 				} else {
 					// Performance note: clear only the posts cache — menu_order lives in wp_posts, not in meta or term caches.

@@ -109,7 +109,7 @@ final class ProductsOrderingMoveService {
 			 */
 			$clean_post_cache = (bool) apply_filters( 'woocommerce_single_product_ordering_clean_post_cache', true );
 			if ( $clean_post_cache ) {
-				// Performance note: fires clean_post_cache action per product for cache plugins compatibility.
+				// Performance note: fires clean_post_cache action per product for cache plugins compatibility (WooCommerce v11.2).
 				array_walk( $range_ids, 'clean_post_cache' );
 			} else {
 				// Performance note: clear only the posts cache — menu_order lives in wp_posts, not in meta or term caches.
